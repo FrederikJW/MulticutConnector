@@ -47,10 +47,103 @@ class GraphFactory:
             y = node // col_count
 
             if x != 0:
-                edges.append((node, node - 1, {"cost": (data[1][slice_num][x][y] * 2) - 1, "id": i}))
+                cost = data[1][slice_num][x][y] - 0.55
+                if cost > 0:
+                    cost *= (100 / 0.45)**3
+                else:
+                    cost *= (150 / 0.55)**3
+                edges.append((node, node - 1, {"cost": int(cost), "id": i}))
                 i += 1
             if y != 0:
-                edges.append((node, node - col_count, {"cost": (data[2][slice_num][x][y] * 2) - 1, "id": i}))
+                cost = data[2][slice_num][x][y] - 0.55
+                if cost > 0:
+                    cost *= (100 / 0.45)**3
+                else:
+                    cost *= (150 / 0.55)**3
+
+                edges.append((node, node - col_count, {"cost": int(cost), "id": i}))
+                i += 1
+
+        graph.add_edges_from(edges)
+
+        return graph
+
+    @staticmethod
+    def generate_good_example():
+        height = 50
+        width = 50
+
+        graph = Graph()
+        graph.add_nodes_from([(node, {"pos": (node % width, node // height)}) for node in range(height*width)])
+
+        edges = []
+        i = 0
+        for node, pos in graph.nodes(data="pos"):
+            x = pos[0]
+            y = pos[1]
+
+            if x != 0:
+                # add horizontal edge
+                if (x == 11 or x == 39) and 11 <= y <= 38:
+                    cost = -1
+                else:
+                    cost = 2
+
+                edges.append((node, node - 1, {"cost": int(cost), "id": i}))
+                i += 1
+            if y != 0:
+                # add vertical edge
+                if 11 <= x <= 38 and y == 11:
+                    cost = -1
+                elif (11 <= x <= 19 or 30 <= x <= 38) and y == 39:
+                    cost = -1
+                elif x == 25:
+                    cost = 5
+                else:
+                    cost = 2
+
+                edges.append((node, node - width, {"cost": int(cost), "id": i}))
+                i += 1
+
+        graph.add_edges_from(edges)
+
+        return graph
+
+    @staticmethod
+    def generate_bad_example():
+        height = 50
+        width = 50
+
+        graph = Graph()
+        graph.add_nodes_from([(node, {"pos": (node % width, node // height)}) for node in range(height*width)])
+
+        edges = []
+        i = 0
+        for node, pos in graph.nodes(data="pos"):
+            x = pos[0]
+            y = pos[1]
+
+            if x != 0:
+                # add horizontal edge
+                if (x == 11 or x == 39) and 11 <= y <= 38:
+                    cost = -1
+                elif x == 20 and 31 <= y <= 38:
+                    cost = -1
+                else:
+                    cost = 2
+
+                edges.append((node, node - 1, {"cost": int(cost), "id": i}))
+                i += 1
+            if y != 0:
+                # add vertical edge
+                if 11 <= x <= 38 and y == 11:
+                    cost = -1
+                elif (11 <= x <= 19) and y == 31:
+                    cost = -1
+                else:
+                    cost = 2
+
+                edges.append((node, node - width, {"cost": int(cost), "id": i}))
                 i += 1
 
         graph.add_edges_from(edges)

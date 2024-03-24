@@ -28,7 +28,9 @@ class Visualizer:
         self.current_history = (0, 0)
         self.history = []
         self.history_mode = False
+        self.history_mode_type = 0
         self.animation_time_progress = None
+        self.animation_speed = 0.01
         self.redraw_edges = set()
 
         # setup pygame
@@ -112,6 +114,8 @@ class Visualizer:
             self.calculate_edge_colors()
 
     def calculate_edge_colors(self):
+        self.edge_colors = {}
+
         num_edges = len(self.graph.edges)
         cut_negative_color = PURPLE
         non_cut_negative_color = RED
@@ -146,32 +150,41 @@ class Visualizer:
             self.edge_colors[edge_id] = RED
         self.draw_necessary = True
 
-    def set_history_file(self, filename):
+    def set_history_file(self, filename, mode=0, speed=0.01):
+        self.animation_speed = speed
+        self.history_mode_type = mode
         print("read history file")
         self.history = []
+
         with open(filename, "r") as file:
             lines = [line.strip() for line in file]
             for line in tqdm(lines):
-                line_list = line.split(';')
-                if len(line_list) != 3:
-                    print("history file corrupted")
-                    break
-                search_history, cut, merge = line_list
+                if self.history_mode_type < 2:
+                    line_list = line.split(';')
+                    if len(line_list) != 3:
+                        print("history file corrupted")
+                        break
+                    search_history, cut, merge = line_list
 
-                if len(search_history) > 0:
-                    search_history = list(map(int, search_history.split(',')))
-                else:
-                    search_history = []
-                if len(cut) > 0:
-                    cut = list(map(int, cut.split(',')))
-                else:
-                    cut = []
-                if len(merge) > 0:
-                    merge = list(map(int, merge.split(',')))
-                else:
-                    merge = []
+                    if len(search_history) > 0:
+                        search_history = list(map(int, search_history.split(',')))
+                    else:
+                        search_history = []
+                    if len(cut) > 0:
+                        cut = list(map(int, cut.split(',')))
+                    else:
+                        cut = []
+                    if len(merge) > 0:
+                        merge = list(map(int, merge.split(',')))
+                    else:
+                        merge = []
 
-                self.history.append((search_history, cut, merge))
+                    self.history.append((search_history, cut, merge))
+                else:
+                    if not line:
+                        continue
+                    line_list = list(map(int, line.split(',')))
+                    self.history.append(line_list)
 
         self.history_mode = True
         # self.history_getter = history_getter
@@ -184,38 +197,71 @@ class Visualizer:
         return self.history
 
     def set_edge_color_for_history(self):
-        self.animation_time_progress += 0.0001
+        self.animation_time_progress += self.animation_speed
         history = self.get_history()
         if len(history) == 0:
             return
-        major_history = self.current_history[0]
-        minor_history = self.current_history[1]
-        current_history_state = history[major_history]
 
-        minor_history += 1
-        if minor_history > len(current_history_state[0]):
-            self.search_edge_colors = {}
-            self.draw_necessary = True
-            if major_history == len(history) - 1:
-                return
-            major_history += 1
-            minor_history = 0
+        skipped = True
+        while skipped:
+            skipped = False
+            if self.history_mode_type < 2:
+                # for shortest path visualization
+                major_history = self.current_history[0]
+                minor_history = self.current_history[1]
+                if major_history < len(history):
+                    current_history_state = history[major_history]
+                    if self.history_mode_type != 0 and len(current_history_state[0]) == 0 and len(current_history_state[1]) == 0 and len(current_history_state[2]) == 0:
+                        self.search_edge_colors = {}
+                        self.draw_necessary = True
 
-        self.current_history = (major_history, minor_history)
+                    minor_history += 1
+                    if minor_history > len(current_history_state[0]):
+                        if self.history_mode_type == 0:
+                            self.search_edge_colors = {}
+                        self.draw_necessary = True
 
-        if minor_history == 0 and major_history > 0:
-            current_history_state = history[major_history - 1]
+                        major_history += 1
+                        minor_history = 0
 
-            for edge in current_history_state[1]:
-                # cuts
-                self.edge_colors[edge] = RED
-            for edge in current_history_state[2]:
-                # paths
-                self.edge_colors[edge] = DARK_GREY
-        else:
-            edge = current_history_state[0][minor_history - 1]
-            self.search_edge_colors[edge] = GREEN
-            self.redraw_edges.add(edge)
+                self.current_history = (major_history, minor_history)
+
+                if minor_history == 0 and major_history > 0:
+                    current_history_state = history[major_history - 1]
+
+                    for edge in current_history_state[1]:
+                        # cuts
+                        self.edge_colors[edge] = RED
+                    for edge in current_history_state[2]:
+                        # paths
+                        self.edge_colors[edge] = DARK_GREY
+                    if major_history == len(history):
+                        self.search_edge_colors = {}
+                        self.draw_necessary = True
+                        minor_history += 1
+                elif major_history == len(history):
+                    return
+                else:
+                    edge = current_history_state[0][minor_history - 1]
+                    if self.search_edge_colors.get(edge) and self.search_edge_colors.get(edge) == GREEN:
+                        skipped = True
+                        continue
+                    self.search_edge_colors[edge] = GREEN
+                    self.redraw_edges.add(edge)
+            else:
+                # for edge contraction visualization
+                current_history_date = self.current_history[0]
+                self.current_history = (current_history_date + 1, 0)
+                # print("at history", current_history_date)
+                if current_history_date == 0 or current_history_date > len(history):
+                    return
+
+                current_history = history[current_history_date - 1]
+
+                for edge in current_history:
+                    self.edge_colors[edge] = GREEN
+                    self.redraw_edges.add(edge)
+                    self.draw_necessary = True
 
     def get_edge_color(self, edge_id):
         color = self.search_edge_colors.get(edge_id, None)
@@ -319,7 +365,7 @@ class Visualizer:
         if not self.draw_necessary:
             return
 
-        if node_radius < 5:
+        if node_radius < 10:
             return
         # draw nodes
         outside_node = 0
