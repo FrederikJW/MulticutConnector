@@ -1,0 +1,4 @@
+[submodule "CP-Lib"]
+    path = graphs/CP-Lib
+    url = https://github.com/MMSorensen/CP-Lib.git
+    branch = master
